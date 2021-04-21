@@ -3,13 +3,12 @@ title: "Starwars"
 author: "Bobr"
 date: "21 04 2021"
 output:
-  word_document: default
   html_document: default
+  word_document: default
   pdf_document: default
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+## Setting up my environment
+```{r loading packages}
 library(tidyverse)
 library(ggpubr)
 library(ggpmisc)
@@ -20,7 +19,7 @@ In this process we have done:
 * removed heroes with a mass over 1000 kg.
 * dropped heroes without gender.
 * created dynamic variable for heroes quantity.
-```{r}
+```{r cleaning the set}
 starwars_c <- starwars %>%
   drop_na(sex) %>% 
   filter(mass < 1000) 
@@ -29,15 +28,15 @@ head(starwars_c, n=6)
 ```
 ## Calculating statistical data
 Running this code results in creating the following table:
-```{r}
+```{r calculating statistical data}
 starwars_stat <- starwars_c %>% 
   group_by(sex) %>% 
   summarise(mean(height), sd(height), mean(mass), sd(mass), cor=cor(height,mass)) 
 head(starwars_stat)
 ```
 ## Plotting
-Running the following code results in the creation of a scatter plot that shows a relation between heroes' height and weight grouped by gender.
-```{r}
+Here we plot(scatter) heroes' height against body mass and look at the breakdown by gender.
+```{r plotting}
 ggplot(data = starwars_c,
        aes(x = height,
            y = mass)) +
@@ -50,3 +49,10 @@ ggplot(data = starwars_c,
   annotate("text", x=215, y=72, label = "well stacked", color = "orange",
            fontface = "bold", size = 4.5, angle=-10)
 ```
+
+Then we plot(bar) height against body mass, look at the breakdown by gender , and create a ribbon of plots by eye color.
+```{r}
+ggplot(data = starwars_c) +
+  geom_bar(aes(x=sex, fill = eye_color)) + facet_wrap(~eye_color)
+```
+
