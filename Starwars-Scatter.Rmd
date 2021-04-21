@@ -1,0 +1,47 @@
+---
+title: "Starwars"
+author: "Bobr"
+date: "21 04 2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+library(ggpmisc)
+```
+## Cleaning the set
+To do so we have to remove heroes with a mass over 1000 kg and drop ones without gender.
+```{r}
+starwars_c <- starwars %>%
+  drop_na(sex) %>% 
+  filter(mass < 1000) 
+n_heroes <- nrow(starwars_c) #to make caption dinamic
+head(starwars_c, n=6)
+```
+## Calculating statistical data
+Running this code results in the following table:
+```{r}
+starwars_stat <- starwars_c %>% 
+  group_by(sex) %>% 
+  summarise(mean(height), sd(height), mean(mass), sd(mass), cor=cor(height,mass)) 
+head(starwars_stat)
+```
+## Plotting
+Running the following code results in the creation of a scatter plot that shows a relation between heroes' height and weight grouped by gender.
+```{r}
+ggplot(data = starwars_c,
+       aes(x = height,
+           y = mass)) +
+  geom_point(aes(color = sex), size = 3) +
+  stat_smooth(aes(color = sex, linetype=sex), method = "lm", se = F, formula = y ~ x) +
+    geom_density2d_filled(alpha = 0.5) +
+  stat_cor(aes(color = sex), digits=2, p.accuracy=0.01, method="pearson", size = 5) +
+    labs(title = "SW: Body Mass vs. Height", subtitle = "Male - Female - Not Specified",
+       caption = paste0("Based on ", n_heroes, " heroes"), x="Height",y="Weight") +
+  annotate("text", x=215, y=72, label = "well stacked", color = "orange",
+           fontface = "bold", size = 4.5, angle=-10)
+```
