@@ -3,6 +3,7 @@ title: "Starwars"
 author: "Bobr"
 date: "21 04 2021"
 output:
+  word_document: default
   html_document: default
   pdf_document: default
 ---
@@ -14,7 +15,11 @@ library(ggpubr)
 library(ggpmisc)
 ```
 ## Cleaning the set
-To do so we have to remove heroes with a mass over 1000 kg and drop ones without gender.
+In this process we have done:
+
+* removed heroes with a mass over 1000 kg.
+* dropped heroes without gender.
+* created dynamic variable for heroes quantity.
 ```{r}
 starwars_c <- starwars %>%
   drop_na(sex) %>% 
@@ -23,7 +28,7 @@ n_heroes <- nrow(starwars_c) #to make caption dinamic
 head(starwars_c, n=6)
 ```
 ## Calculating statistical data
-Running this code results in the following table:
+Running this code results in creating the following table:
 ```{r}
 starwars_stat <- starwars_c %>% 
   group_by(sex) %>% 
