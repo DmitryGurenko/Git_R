@@ -1,1 +1,1 @@
-# my_R ffs
+# My learning process and experiments in RStudio
