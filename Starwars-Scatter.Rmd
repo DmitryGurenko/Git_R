@@ -4,8 +4,6 @@ author: "Bobr"
 date: "21 04 2021"
 output:
   html_document: default
-  word_document: default
-  pdf_document: default
 ---
 ## Setting up my environment
 ```{r loading packages}
