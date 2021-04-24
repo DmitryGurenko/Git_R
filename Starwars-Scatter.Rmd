@@ -1,6 +1,6 @@
 ---
 title: "Starwars"
-author: "Bobr"
+author: "Kai_Wilde"
 date: "21 04 2021"
 output:
   html_document: default
