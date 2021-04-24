@@ -1,0 +1,193 @@
+---
+title: "Cyclistic Bike-share - A Case study"
+author: "based on Julen Aranguren's notebook on Kaggle"
+date: '2021-04-23'
+output:
+  html_notebook: default
+---
+<br>
+
+### PHASE 1: Ask.
+* How do annual members and casual riders use *Cyclistic* bikes differently?
+* What marketers should pay attention to influence casual riders to become members?  
+
+***  
+<br>
+
+### PHASE 2: Prepare.  
+#### Setting up the environment
+```{r environment setup, collapse=TRUE}
+library("tidyverse")
+library("ggplot2")
+library("lubridate")
+library("geosphere")
+library("gridExtra") 
+library("ggmap")
+library("lubridate")
+library("curl")
+Sys.setlocale("LC_TIME","english")
+```  
+<br>
+Loading the data to their respective variables *(from 2020-04 until 2021-03)*.
+```{r data import, collapse=TRUE}
+tripdata_2020_04 <- read_csv("Data\\202004-divvy-tripdata.csv")
+tripdata_2020_05 <- read_csv("Data\\202005-divvy-tripdata.csv")
+tripdata_2020_06 <- read_csv("Data\\202006-divvy-tripdata.csv")
+tripdata_2020_07 <- read_csv("Data\\202007-divvy-tripdata.csv")
+tripdata_2020_08 <- read_csv("Data\\202008-divvy-tripdata.csv")
+tripdata_2020_09 <- read_csv("Data\\202009-divvy-tripdata.csv")
+tripdata_2020_10 <- read_csv("Data\\202010-divvy-tripdata.csv")
+tripdata_2020_11 <- read_csv("Data\\202011-divvy-tripdata.csv")
+tripdata_2020_12 <- read_csv("Data\\202012-divvy-tripdata.csv")
+tripdata_2021_01 <- read_csv("Data\\202101-divvy-tripdata.csv")
+tripdata_2021_02 <- read_csv("Data\\202102-divvy-tripdata.csv")
+tripdata_2021_03 <- read_csv("Data\\202103-divvy-tripdata.csv")
+```
+<br>  
+Type of columns "start_station_id" and "end_station_id" in the data from *2020-04 until 2020-11* declared as **"int"**.  
+Have to change it to **"char"** and then join data frames.  
+(Respective column's type in data from 2020-12 until 2021-03 already in **"char"** and does not require any change)
+```{r joining data}
+tripdata_withDoubles <- bind_rows(tripdata_2020_04,tripdata_2020_05,tripdata_2020_06,tripdata_2020_07,
+                                  tripdata_2020_08,tripdata_2020_09,tripdata_2020_10,tripdata_2020_11)
+
+tripdata_withDoubles <-  mutate(tripdata_withDoubles, start_station_id = as.character(start_station_id)
+                                ,end_station_id = as.character(end_station_id)) 
+
+tripdata_withChar <- bind_rows(tripdata_2020_12,tripdata_2021_01,tripdata_2021_02,tripdata_2021_03)
+
+all_tripdata <- bind_rows(tripdata_withChar,tripdata_withDoubles)
+```
+***
+<br>
+
+### PHASE 3: Process
+```{r head n5, echo=FALSE}
+print("### Sneak peak into data frame's structure ###")
+head(all_tripdata, n=5)
+```
+<br>  
+From this point it will be adequate to exclude rows containing missing values (NA) and separate the dates into individual columns such as **month, day, year and day of the week**.
+```{r date columns}
+all_tripdata_clean <- drop_na(all_tripdata)
+all_tripdata_clean$date <- as.Date(all_tripdata_clean$started_at) 
+all_tripdata_clean$month <- format(as.Date(all_tripdata_clean$date), "%m")
+all_tripdata_clean$day <- format(as.Date(all_tripdata_clean$date), "%d")
+all_tripdata_clean$year <- format(as.Date(all_tripdata_clean$date), "%Y")
+all_tripdata_clean$day_of_week <- format(as.Date(all_tripdata_clean$date), "%A")
+```
+<br>   
+Then it would be helpful to create new columns with **duration of the ride (in seconds)**, **distance traveled (in kilometers)**, and **speed (Km/h)**.
+```{r new attributes}
+all_tripdata_clean$ride_length <- difftime(all_tripdata_clean$ended_at,all_tripdata_clean$started_at)
+
+all_tripdata_clean$ride_distance_km <- distGeo(matrix(c(all_tripdata_clean$start_lng, all_tripdata_clean$start_lat), 
+                                                   ncol = 2), matrix(c(all_tripdata_clean$end_lng,
+                                                                       all_tripdata_clean$end_lat), ncol = 2))
+all_tripdata_clean$ride_distance_km <- all_tripdata_clean$ride_distance_km/1000
+
+all_tripdata_clean$ride_speed = c(all_tripdata_clean$ride_distance_km)/as.numeric(c(all_tripdata_clean$ride_length), units="hours")
+```
+<br>   
+Also, the data frame includes a few hundred entries when bikes were taken out of docks and then checked in for quality control to Divvy or when ride_length was a negative number. They should be removed.
+```{r exclusion}
+all_tripdata_clean <- all_tripdata_clean[!(all_tripdata_clean$start_station_name == "HQ QR" | 
+                                             all_tripdata_clean$ride_length<0),]
+```
+***
+<br>
+
+### PHASE 4: Analyze
+#### Part 1. Type of Customer.
+At this point, we're calculating and plotting average ride time and distance traveled for both casual and membership riders.
+```{r mean travel time | travel distance}
+userType_means <- all_tripdata_clean %>% 
+  group_by(member_casual) %>% 
+  summarise(mean_time = mean(ride_length),mean_distance_km = mean(ride_distance_km))
+
+membervstime <- ggplot(userType_means) + 
+  geom_col(mapping=aes(x=member_casual,y=mean_time,fill=member_casual), show.legend = FALSE) +
+  labs(title = "Mean travel time by Customer type",x=" ",y="Mean time in seconds") +
+  theme(plot.title = element_text(size=13))
+
+membervsdistance <- ggplot(userType_means) + 
+  geom_col(mapping=aes(x=member_casual,y=mean_distance_km,fill=member_casual), show.legend = FALSE) +
+  labs(title = "Mean travel distance by Customer type",x=" ",y="Mean distance in kilometers",
+       caption = "Data by Motivate International Inc") +
+  theme(plot.title = element_text(size=13))
+
+grid.arrange(membervstime, membervsdistance, ncol = 2)
+```
+<br>  
+Then we can check the difference in the number of trips by each day of the week.
+```{r number of rides by each day of the week}
+all_tripdata_clean %>% 
+  mutate(weekday = wday(started_at, label = TRUE, week_start = getOption("lubridate.week.start", 1))) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()/1000, average_duration = mean(ride_length),.groups = 'drop') %>% 
+  arrange(member_casual, weekday)  %>% 
+  
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  labs(title = "Number of rides by Customer type during the week",x="Days of the week",y="Number of rides / 1000",caption = "Data by Motivate International Inc", fill="Customer type") +
+  scale_fill_discrete(name = " ", labels = c("Casual", "Member")) +
+  theme(legend.position="top", plot.title = element_text(hjust = 0.5))
+```
+#### **Conclusions:**
+**Casual riders** travel the same average distance as the **Membership riders**, but their rides are much longer.  
+That would indicate a more leisure-oriented way of usage by the first in comparison with a mean of transportation or pragmatic way of bike usage by the second.  
+Also,  **Casuals** tend to use the service much more heavily on weekends, when **Members** show steady numbers for each day of the week.  
+
+***
+#### Part 2. Bike type.
+Creating a new data frame with only the rows containing the data about the type of bike (classic or electric).  
+Then plotting the bike type usage for **Casuals** and **Members**.
+```{r type of bike usage for Casuals and Members}
+with_bike_type <- all_tripdata_clean %>% filter(rideable_type=="classic_bike" | rideable_type=="electric_bike")
+
+with_bike_type %>%
+  group_by(member_casual,rideable_type) %>%
+  summarise(totals=n()/1000, .groups="drop")  %>%
+  
+  ggplot()+
+  geom_col(aes(x=member_casual,y=totals,fill=rideable_type), position = "dodge") + 
+  labs(title = "Bike type usage by Customer type", x=" ", y="Number of rides / 1000", fill="Bike type") +
+  scale_fill_manual(values = c("classic_bike" = "#746F72","electric_bike" = "#eda500"), 
+                    name = "Bike type", labels = c("Classic", "Electric")) +
+  theme_minimal() +
+  theme(legend.position="bottom", plot.title = element_text(hjust = 0.5))
+```
+<br>  
+And after that, we can plot the bike type usage by each Customer type for each day of the week.
+```{r type of bike usage by each day of the week}
+with_bike_type %>%
+  mutate(weekday = wday(started_at, label = TRUE, week_start = getOption("lubridate.week.start", 1))) %>% 
+  group_by(member_casual,rideable_type,weekday) %>%
+  summarise(totals=n()/1000, .groups="drop") %>%
+  
+  ggplot(aes(x=weekday,y=totals, fill=rideable_type)) +
+  geom_col(, position = "dodge") + 
+  facet_wrap(~member_casual, strip.position="top") +
+  labs(title = "Bike type usage by Customer type during the week", x=" ", y="Number of rides / 1000", 
+       caption = "Data by Motivate International Inc") +
+  scale_fill_manual(values = c("classic_bike" = "#746F72","electric_bike" = "#eda500"),
+                               name = "Bike type", labels = c("Classic", "Electric")) +
+  theme_minimal() +
+  theme(legend.position="bottom", plot.title = element_text(hjust = 0.5))
+```
+#### **Conclusions:**
+**Members** tend to use both types of bikes with a slight increase in electric bike usage towards the end of the week.  
+**Casuals** show a clear preference for electric bikes.
+
+***  
+
+#### **Summary:**  
+**The Casual riders** tend to have **leisure** and **tourism** rides, using service mostly on **weekends** and prefer **electric bikes**.  
+**The Membership riders** make **transportation** rides, using service **whole week** long and favour both **electric & classic bikes**.  
+
+***
+
+#### **Suggestions:**  
+To convert the Casual riders to the annual members it would be wise to focus marketing on the leisure aspect of the service and offer some sort of promotion related to weekend usage and/or electric bikes.
+
+***
